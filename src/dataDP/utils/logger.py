@@ -29,17 +29,36 @@ def setup_logger(name: str = "DataDP_Project", log_path: str | None = None) -> l
         logger.addHandler(console_handler)
 
         # 2. File Handler (pentru audit în Unity Catalog Volume)
+        # From Global
+        log_destination = os.getenv("LOG_FILE_PATH")
+        # From input param
         if log_path:
-            # Ne asigurăm că folderul există (pe Volumes funcționează ca un sistem de fișiere local)
-            log_dir = os.path.dirname(log_path)
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir, exist_ok=True)
+            path = log_path
+        elif log_destination:
+            path = log_destination
+        else:
+            path = None
 
-            file_handler = logging.FileHandler(log_path)
+        if path:
+            # Chek if filepath exists and has access(pe Volumes funcționează ca un sistem de fișiere local)
+            log_dir = os.path.dirname(path)
+            if not os.path.exists(log_dir):
+                msg = f"Log directory path {log_dir} does not exist."
+                logger.error(msg)
+                raise FileNotFoundError(msg)
+            elif not os.access(log_dir, os.W_OK):
+                msg = f"No write access to log directory path {log_dir}."
+                logger.error(msg)
+                raise PermissionError(msg)
+
+            file_handler = logging.FileHandler(path)
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
-            logger.info(f"Log-urile vor fi salvate și în: {log_path}")
+            logger.info(f"Log-urile vor fi salvate și în: {path}")
 
         logger.propagate = False
 
     return logger
+
+
+logger = setup_logger()
