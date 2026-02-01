@@ -20,16 +20,13 @@ except ImportError:
     )
 
 
-@pytest.fixture()
-def spark() -> SparkSession:
-    """Provide a SparkSession fixture for tests.
+@pytest.fixture(scope="session")
+def spark():
+    """Creează o sesiune Spark locală pentru teste."""
+    spark = SparkSession.builder.master("local[1]").appName("unit-testing").getOrCreate()
+    yield spark
+    spark.stop()
 
-    Minimal example:
-        def test_uses_spark(spark):
-            df = spark.createDataFrame([(1,)], ["x"])
-            assert df.count() == 1
-    """
-    return DatabricksSession.builder.getOrCreate()
 
 
 @pytest.fixture()
