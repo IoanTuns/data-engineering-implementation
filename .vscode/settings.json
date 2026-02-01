@@ -21,12 +21,6 @@
     "python.analysis.diagnosticMode": "workspace",
     "python.analysis.stubPath": ".vscode",
 
-    // Pyright settings (Cursor)
-    // Set typeCheckingMode to "basic" to enable type checking!
-    "cursorpyright.analysis.typeCheckingMode": "off",
-    "cursorpyright.analysis.extraPaths": ["src", "lib", "resources"],
-    "cursorpyright.analysis.diagnosticMode": "workspace",
-    "cursorpyright.analysis.stubPath": ".vscode",
 
     // General Python settings
     "python.defaultInterpreterPath": "./.venv/bin/python",
@@ -35,5 +29,9 @@
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "always",
+        "source.organizeImports.ruff": "always"
+        },
     },
 }
