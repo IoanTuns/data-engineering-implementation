@@ -2,8 +2,7 @@ import functools
 import time
 from typing import Any, Callable, TypeVar
 
-from ..decorators.loggers import logger
-from .spark_context import get_spark_session
+from dataDP import get_spark_session, logger
 
 # Generic type for function return values
 R = TypeVar("R")

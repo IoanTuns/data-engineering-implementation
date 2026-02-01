@@ -4,9 +4,9 @@ import os
 
 import requests
 
-from dataDP.decorators.loggers import with_logging
-from dataDP.exceptions.ingestion import VolumeIngestionError
-from dataDP.utils.logger import logger
+from dataDP import logger
+from dataDP.decorators import with_logging
+from dataDP.exceptions import VolumeIngestionError
 
 
 @with_logging

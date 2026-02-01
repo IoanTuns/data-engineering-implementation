@@ -5,7 +5,7 @@ import os
 from databricks.connect import DatabricksSession
 from pyspark.sql import SparkSession
 
-from ..decorators.loggers import logger
+from dataDP import logger
 
 
 def is_databricks_available() -> bool:

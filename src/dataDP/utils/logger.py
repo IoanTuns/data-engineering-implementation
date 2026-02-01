@@ -4,7 +4,7 @@ import logging
 import os
 
 
-def setup_logger(name="DataDP_Project", log_path=None):
+def setup_logger(name: str = "DataDP_Project", log_path: str | None = None) -> logging.Logger:
     """Sets up a logger that logs to both console and a file in Unity Catalog Volume.
 
     Args:
@@ -43,12 +43,3 @@ def setup_logger(name="DataDP_Project", log_path=None):
         logger.propagate = False
 
     return logger
-
-
-"""Initialize the logger for the DataDP project."""
-log_destination = os.getenv("LOG_FILE_PATH")
-if log_destination:
-    logger = setup_logger(log_path=log_destination)
-else:
-    logger = setup_logger()
-    logger.warning("LOG_FILE_PATH not set. Logs will only be displayed in console.")
