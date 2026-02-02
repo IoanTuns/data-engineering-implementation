@@ -18,4 +18,4 @@ def ingest_ny_taxi_data(taxi_type, year, month, catalog, schema):
     file_name = f"{taxi_type}_tripdata_{year}-{int(month):02d}.parquet"
     logger.info(f"Ingesting {file_name}...")
     url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/{file_name}"
-    ingest_to_unity_volume(url, catalog, schema, file_name)
+    ingest_to_unity_volume(url, catalog, schema, file_name, additional_path=taxi_type)
