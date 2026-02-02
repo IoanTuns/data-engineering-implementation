@@ -3,6 +3,8 @@
 import os
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from dataDP import logger
 from dataDP.decorators import with_logging
@@ -33,7 +35,13 @@ def ingest_to_unity_volume(
 
 @with_logging
 def ingest_to_data_from_api(
-    volume_path: str, url: str, catalog: str, schema: str, file_name: str, additional_path: str | None = None
+    volume_path: str,
+    url: str,
+    catalog: str,
+    schema: str,
+    file_name: str,
+    additional_path: str | None = None,
+    force_download: bool = False,
 ) -> None:
     """
     Downloads a file from a URL and saves it into desire location.
@@ -49,11 +57,19 @@ def ingest_to_data_from_api(
     Returns:
         None
     """
+    timeout = 10  # seconds
+    retry = 5  # number of retries
+
     if additional_path:
         # Ensure sub-directories exist if specified
         volume_path = os.path.join(volume_path, additional_path.strip("/"))
 
     full_destination = os.path.join(volume_path, file_name)
+
+    # Skip download if file already exists and force_download is False
+    if os.path.exists(full_destination) and not force_download:
+        logger.info(f"File {full_destination} already exists. Skipping download.")
+        return
 
     # Ensure the destination volume/directory is accessible
     if not os.path.exists(volume_path):
@@ -70,8 +86,14 @@ def ingest_to_data_from_api(
     # Streaming download: memory-efficient for large files
     # use requests parameters are in actual impementation scope
     # if needed, add headers, auth, timeout, etc.
+    session = requests.Session()
+    retries = Retry(total=retry, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
     try:
-        with requests.get(url, stream=True) as r:
+        with session.get(url, stream=True, timeout=timeout) as r:
             r.raise_for_status()
             with open(full_destination, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
