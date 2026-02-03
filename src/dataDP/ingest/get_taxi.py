@@ -1,10 +1,5 @@
 """Handle ingestion of taxi data into Unity Catalog Volumes."""
 
-import os
-import subprocess
-
-import requests
-
 from dataDP import logger
 from dataDP.decorators import with_logging
 from dataDP.ingest import ingest_to_unity_volume
@@ -24,4 +19,3 @@ def ingest_ny_taxi_data(taxi_type, year, month, catalog, schema):
     logger.info(f"Ingesting {file_name}...")
     url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/{file_name}"
     ingest_to_unity_volume(url, catalog, schema, file_name, additional_path=taxi_type)
-

@@ -1,0 +1,38 @@
+# A sample job for dataDP.
+
+resources:
+  jobs:
+    ingest_NYC_Taxi_data:
+      name: ingest_NYC_Taxi_data
+      max_concurrent_runs: 1
+
+      #email_notifications:
+      #  on_failure:
+      #    - your_email@example.com
+
+      tasks:
+        - task_key: notebook_task
+          notebook_task:
+            notebook_path: ../../../notebooks/ingestion/ingest_NYC_taxi_data.ipynb
+            base_parameters:
+              taxi_type: ""
+              year: ""
+              month: ""
+
+        - task_key: python_wheel_task
+          depends_on:
+            - task_key: notebook_task
+          environment_key: default
+          python_wheel_task:
+            package_name: dataDP
+            entry_point: main
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:
+              # By default we just include the .whl file generated for the dataDP package.
+              # See https://docs.databricks.com/dev-tools/bundles/library-dependencies.html
+              # for more information on how to add other libraries.
+              - ../../../dist/*.whl
