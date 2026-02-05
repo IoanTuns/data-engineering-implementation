@@ -1,9 +1,10 @@
 """Tables definitions for metadata management."""
 
+from dataDP.config import DEFAULT_INGEST_LOGS_TABLE, DEFAULT_SRC_DEFINITIONS_TABLE
 from dataDP.table_management.definition import ColumnDefinition, TableDefinition, create_table_definition_from_dict
 
 src_definitions_metadata = TableDefinition(
-    table_name="workspace.meta.src_definitions",
+    table_name=DEFAULT_SRC_DEFINITIONS_TABLE,
     location="",
     columns=[
         ColumnDefinition("source_system", "string"),
@@ -16,7 +17,7 @@ src_definitions_metadata = TableDefinition(
 )
 
 ingest_logs = create_table_definition_from_dict(
-    table_name="workspace.meta.ingest_logs",
+    table_name=DEFAULT_INGEST_LOGS_TABLE,
     location="",
     columns_dict=[
         {"name": "execution_id", "type": "string"},
