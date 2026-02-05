@@ -1,3 +1,5 @@
+"""Module for uploading data to Databricks Volumes using local internet connection to bypass DNS issues on free accounts."""
+
 import os
 import subprocess
 
@@ -27,7 +29,7 @@ def upload_metadata_data_locally(catalog="workspace", schema="taxi") -> None:
 
     reference_files = {
         "taxi_zone_lookup.csv": "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv",
-        "taxi_zones.parquet": "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip",
+        "taxi_zones.zip": "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip",
         "map_bronx.jpg": "https://www.nyc.gov/assets/tlc/images/content/pages/about/taxi_zone_map_bronx.jpg",
         "map_brooklyn.jpg": "https://www.nyc.gov/assets/tlc/images/content/pages/about/taxi_zone_map_brooklyn.jpg",
         "map_manhattan.jpg": "https://www.nyc.gov/assets/tlc/images/content/pages/about/taxi_zone_map_manhattan.jpg",

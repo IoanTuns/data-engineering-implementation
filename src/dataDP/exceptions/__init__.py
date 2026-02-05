@@ -1,3 +1,5 @@
+"""DataDP exceptions package."""
+
 from .data import (
     DataConnectionError,
     DataFormatError,
@@ -11,6 +13,7 @@ from .data import (
     SchemaMismatchError,
 )
 from .ingestion import VolumeIngestionError
+from .tables import TableCreationErrorException
 
 __all__ = [
     "DataConnectionError",
@@ -24,4 +27,5 @@ __all__ = [
     "DataWriteError",
     "SchemaMismatchError",
     "VolumeIngestionError",
+    "TableCreationErrorException",
 ]
