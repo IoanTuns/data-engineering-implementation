@@ -4,7 +4,8 @@ import functools
 import time
 from typing import Any, Callable, TypeVar
 
-from dataDP import get_spark_session
+from dataDP.spark_context import get_spark_session
+from dataDP.utils.logger import logger
 
 # Generic type for function return values
 R = TypeVar("R")
@@ -27,7 +28,6 @@ def with_logging(func: Callable[..., R]) -> Callable[..., R]:
         Exception: Re-raises any exception encountered during the execution of
             the wrapped function after logging the error.
     """
-    from dataDP import logger
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> R:

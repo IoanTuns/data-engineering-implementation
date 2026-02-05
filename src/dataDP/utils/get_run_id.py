@@ -7,9 +7,34 @@ from pyspark.dbutils import DBUtils
 # if TYPE_CHECKING:
 from pyspark.sql import SparkSession
 
-from dataDP.decorators import with_logging_and_spark
+from dataDP.decorators.loggers import with_logging_and_spark
 from dataDP.utils.logger import logger
 
+def get_job_context(spark: SparkSession) -> dict:
+    """Get all available job context information"""
+    context = {}
+    
+    try:
+        context['job_run_id'] = spark.conf.get("spark.databricks.job.runId")
+    except:
+        context['job_run_id'] = None
+    
+    try:
+        context['job_id'] = spark.conf.get("spark.databricks.job.id")
+    except:
+        context['job_id'] = None
+    
+    try:
+        context['task_key'] = spark.conf.get("spark.databricks.job.taskKey")
+    except:
+        context['task_key'] = None
+    
+    try:
+        context['parent_run_id'] = spark.conf.get("spark.databricks.job.parentRunId")
+    except:
+        context['parent_run_id'] = None
+    
+    return context
 
 @with_logging_and_spark
 def get_execution_id(spark: SparkSession) -> str:
@@ -36,12 +61,10 @@ def get_execution_id(spark: SparkSession) -> str:
     except Exception:
         pass
 
-    # Get from Spark config
+    # Get from Spark context
     try:
         logger.info("Trying to get run_id from Spark config...")
-        run_id = spark.conf.get("spark.databricks.job.runId")
-        if run_id:
-            return run_id
+        run_id = get_job_context(spark).get('job_run_id')
     except Exception:
         pass
 
