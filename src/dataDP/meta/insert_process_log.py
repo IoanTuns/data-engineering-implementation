@@ -17,8 +17,8 @@ def insert_ingestion_log(
     status: str,
     records_processed: int = 0,
     records_failed: int = 0,
-    start_time: datetime,
-    end_time: datetime,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
     duration_min: str | int | float | None = None,
     message: str | None = None,
 ) -> None:
