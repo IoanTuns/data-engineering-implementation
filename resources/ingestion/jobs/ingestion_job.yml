@@ -11,17 +11,21 @@ resources:
       #    - your_email@example.com
 
       tasks:
-        - task_key: notebook_task
+        - task_key: inget_taxi_data
           notebook_task:
             notebook_path: ../../../notebooks/ingestion/ingest_NYC_taxi_data.ipynb
             base_parameters:
               taxi_type: ""
               year: ""
               month: ""
+        
+        - task_key: inget_coordinates_data
+          notebook_task:
+            notebook_path: ../../../notebooks/ingestion/ingest_coordinates.ipynb
 
         - task_key: python_wheel_task
           depends_on:
-            - task_key: notebook_task
+            - task_key: inget_taxi_data
           environment_key: default
           python_wheel_task:
             package_name: dataDP
