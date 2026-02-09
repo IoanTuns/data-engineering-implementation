@@ -22,6 +22,10 @@ resources:
         - task_key: inget_coordinates_data
           notebook_task:
             notebook_path: ../../../notebooks/ingestion/ingest_coordinates.ipynb
+        
+        - task_key: inget_taxi_zone_lookup
+          notebook_task:
+            notebook_path: ../../../notebooks/ingestion/ingest_taxi_zone_lookup.ipynb
 
         - task_key: python_wheel_task
           depends_on:

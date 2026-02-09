@@ -22,6 +22,8 @@ def populate_stg_tables_from_storage(
     filter_condition: str | None = None,
     timezone_to_utc: bool = False,
     source_timezone: str | None = None,
+    csv_header: bool = False,
+    csv_delimiter: str = ",",
 ):
     """
     Creates the staging tables defined in the metadata if they do not exist.
@@ -52,12 +54,25 @@ def populate_stg_tables_from_storage(
     else:
         start_time = datetime.now()
 
-    df = spark.sql(
-        f"""select * from {DEFAULT_SRC_DEFINITIONS_TABLE}
-        where stg_table in {tg_table_names}
-        and is_active = true
-        """
-    )
+    # Check if list of table names
+    if isinstance(tg_table_names, list) or isinstance(tg_table_names, tuple):
+        if len(tg_table_names) > 1:
+            df = spark.sql(
+                f"""select * from {DEFAULT_SRC_DEFINITIONS_TABLE}
+                where stg_table in {tg_table_names}
+                and is_active = true
+                """
+            )
+        else:
+            tg_table_names = tg_table_names[0]
+
+    if isinstance(tg_table_names, str):
+        df = spark.sql(
+            f"""select * from {DEFAULT_SRC_DEFINITIONS_TABLE}
+            where stg_table = '{tg_table_names}'
+            and is_active = true
+            """
+        )
 
     if df.isEmpty():
         logger.warning("No staging tables to process.")
@@ -132,9 +147,18 @@ def populate_stg_tables_from_storage(
                 {sql}
             )
             FILEFORMAT = {file_format.upper()}
-            FORMAT_OPTIONS ('mergeSchema' = 'true')
-            COPY_OPTIONS ('mergeSchema' = 'true')
             """
+
+        format_options = ["'mergeSchema' = 'true'"]
+        if file_format.lower() == "csv":
+            format_options.append(f"'header' = '{csv_header}'")
+            format_options.append(f"'delimiter' = '{csv_delimiter}'")
+
+        copy_sql += f"FORMAT_OPTIONS ({', '.join(format_options)})\n"
+        copy_sql += "COPY_OPTIONS ('mergeSchema' = 'true')"
+
+        print(copy_sql)
+
         try:
             logger.info(f"Copying data to staging table {stg_table_name} from volume {volume}")
             logger.debug(f"Copying data to staging table {stg_table_name} with SQL: {copy_sql}")
