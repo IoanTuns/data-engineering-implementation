@@ -1,8 +1,9 @@
 """Table and column definitions with ordered schema generation"""
 
+import logging
 import operator
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import reduce
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -25,7 +26,6 @@ from pyspark.sql.types import (
 from dataDP.decorators import with_logging
 
 
-@with_logging
 @dataclass
 class ColumnDefinition:
     """
@@ -73,12 +73,15 @@ class ColumnDefinition:
             StructField: A PySpark StructField object with the specified name,
                 data type, nullability, and metadata (comment).
         """
-        return StructField(
-            self.name,
-            self.to_spark_type(),
-            nullable=self.nullable,
-            metadata={"comment": self.comment} if self.comment else None,
-        )
+        try:
+            return StructField(
+                self.name,
+                self.to_spark_type(),
+                nullable=self.nullable,
+                metadata={"comment": self.comment} if self.comment else None,
+            )
+        except Exception as e:
+            raise ValueError(f"Error creating Spark field for column '{self.name}': {e}") from e
 
     def to_spark_type(self):
         """
@@ -90,30 +93,33 @@ class ColumnDefinition:
         Returns:
             DataType: The corresponding PySpark DataType instance.
         """
-        type_mapping = {
-            "string": StringType(),
-            "int": IntegerType(),
-            "integer": IntegerType(),
-            "long": LongType(),
-            "bigint": LongType(),
-            "double": DoubleType(),
-            "float": FloatType(),
-            "boolean": BooleanType(),
-            "bool": BooleanType(),
-            "timestamp": TimestampType(),
-            "date": DateType(),
-        }
+        try:
+            type_mapping = {
+                "string": StringType(),
+                "int": IntegerType(),
+                "integer": IntegerType(),
+                "long": LongType(),
+                "bigint": LongType(),
+                "double": DoubleType(),
+                "float": FloatType(),
+                "boolean": BooleanType(),
+                "bool": BooleanType(),
+                "timestamp": TimestampType(),
+                "date": DateType(),
+            }
 
-        # Handle decimal types like 'decimal(10,2)'
-        if self.data_type.startswith("decimal"):
-            # Define regex to extract precision and scale
-            match = re.match(r"decimal\((\d+),(\d+)\)", self.data_type)
-            if match:
-                precision, scale = int(match.group(1)), int(match.group(2))
-                return DecimalType(precision, scale)
-            return DecimalType(10, 0)  # default
+            # Handle decimal types like 'decimal(10,2)'
+            if self.data_type.startswith("decimal"):
+                # Define regex to extract precision and scale
+                match = re.match(r"decimal\((\d+),(\d+)\)", self.data_type)
+                if match:
+                    precision, scale = int(match.group(1)), int(match.group(2))
+                    return DecimalType(precision, scale)
+                return DecimalType(10, 0)  # default
 
-        return type_mapping.get(self.data_type.lower(), StringType())
+            return type_mapping.get(self.data_type.lower(), StringType())
+        except Exception as e:
+            raise ValueError(f"Error parsing data type '{self.data_type}' for column '{self.name}': {e}") from e
 
     def get_validation_expr(self) -> Optional[PSF.Column]:
         """
@@ -126,24 +132,27 @@ class ColumnDefinition:
             Optional[PSF.Column]: A boolean Column expression representing the validation logic,
                 or None if no validation rules are defined.
         """
-        conditions = []
-        col = PSF.col(self.name)
+        try:
+            conditions = []
+            col = PSF.col(self.name)
 
-        if not self.nullable:
-            conditions.append(col.isNotNull())
-        if self.min_value is not None:
-            conditions.append(col >= self.min_value)
-        if self.max_value is not None:
-            conditions.append(col <= self.max_value)
-        if self.custom_condition:
-            conditions.append(PSF.expr(self.custom_condition))
+            if not self.nullable:
+                conditions.append(col.isNotNull())
+            if self.min_value is not None:
+                conditions.append(col >= self.min_value)
+            if self.max_value is not None:
+                conditions.append(col <= self.max_value)
+            if self.custom_condition:
+                conditions.append(PSF.expr(self.custom_condition))
 
-        if not conditions:
-            return None
+            if not conditions:
+                return None
 
-        # Combine all conditions with AND
-        final_expr = reduce(operator.and_, conditions)
-        return final_expr
+            # Combine all conditions with AND
+            final_expr = reduce(operator.and_, conditions)
+            return final_expr
+        except Exception as e:
+            raise ValueError(f"Error generating validation expression for column '{self.name}': {e}") from e
 
 
 def _add_is_active(fields: List[StructField]) -> List[StructField]:
@@ -251,13 +260,16 @@ class TableDefinition:
     """
 
     table_name: str
-    location: str
     columns: List[ColumnDefinition]
+    location: Optional[str] = None
     key_columns: Optional[List[str]] = None
     version: str = "1.0.0"
     include_is_active: bool = True
     include_create_and_update: bool = True
     include_valid_from_valid_to: bool = False
+
+    # Logger injected by @with_logging
+    logger: logging.Logger = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
         """Validates the table definition after initialization.
@@ -312,22 +324,31 @@ class TableDefinition:
                 - 'unexpected_in_source': Columns in the DataFrame but not in the definition.
                 - 'type_mismatches': Columns with a different data type than expected.
         """
-        actual_fields = {f.name: f.dataType for f in actual_df.schema.fields}
-        expected_fields = {f.name: f.dataType for f in self.to_schema().fields}
+        # Use case-insensitive mapping for actual fields
+        actual_fields = {f.name.lower(): f.dataType for f in actual_df.schema.fields}
+        actual_fields_names = {f.name.lower(): f.name for f in actual_df.schema.fields}
+
+        # Use case-insensitive mapping for expected fields
+        expected_fields = {f.name.lower(): f.dataType for f in self.to_schema().fields}
+        expected_fields_names = {f.name.lower(): f.name for f in self.to_schema().fields}
 
         report = {"missing_in_source": [], "unexpected_in_source": [], "type_mismatches": []}
 
         # 1. Check for missing or type-mismatched columns
-        for name, expected_type in expected_fields.items():
-            if name not in actual_fields:
-                report["missing_in_source"].append(name)
-            elif actual_fields[name] != expected_type:
-                report["type_mismatches"].append(f"{name}: expected {expected_type}, got {actual_fields[name]}")
+        for name_lower, expected_type in expected_fields.items():
+            expected_name = expected_fields_names[name_lower]
+            if name_lower not in actual_fields:
+                report["missing_in_source"].append(expected_name)
+            elif actual_fields[name_lower] != expected_type:
+                actual_name = actual_fields_names[name_lower]
+                report["type_mismatches"].append(
+                    f"{expected_name}: expected {expected_type}, got {actual_fields[name_lower]} (found as {actual_name})"
+                )
 
         # 2. Check for extra columns in source
-        for name in actual_fields:
-            if name not in expected_fields:
-                report["unexpected_in_source"].append(name)
+        for name_lower in actual_fields:
+            if name_lower not in expected_fields:
+                report["unexpected_in_source"].append(actual_fields_names[name_lower])
 
         return report
 
@@ -360,11 +381,12 @@ class TableDefinition:
 
         column_section = ",\n".join(column_specs)
 
+        location_clause = f"\n            LOCATION '{self.location}'" if self.location else ""
+
         ddl = f"""CREATE TABLE IF NOT EXISTS {self.table_name} (
             {column_section}
             )
-            USING {table_format}
-            LOCATION '{self.location}'
+            USING {table_format}{location_clause}
             TBLPROPERTIES ('schema_version' = '{self.version}');"""
 
         return ddl
@@ -398,10 +420,14 @@ class TableDefinition:
         Returns:
             DataFrame: The original DataFrame with an added 'is_row_valid' boolean column.
         """
+        existing_columns = {c.lower() for c in to_write_df.columns}
         validation_cols = []
         for col_def in self.columns:
+            if col_def.name.lower() not in existing_columns:
+                continue
+
             expr = col_def.get_validation_expr()
-            if expr:
+            if expr is not None:  # With `if expr` puthon try to convert pyspark columns to boolean
                 validation_cols.append(expr)
 
         # If all conditions are met, row is valid
@@ -427,10 +453,14 @@ class TableDefinition:
         Returns:
             DataFrame: The original DataFrame with 'validation_errors' and 'is_row_valid' columns appended.
         """
+        existing_columns = {c.lower() for c in to_write_df.columns}
         failure_messages = []
         for col_def in self.columns:
+            if col_def.name.lower() not in existing_columns:
+                continue
+
             expr = col_def.get_validation_expr()
-            if expr:
+            if expr is not None:
                 # If the expression is FALSE, return the error message, else NULL
                 msg = f"Violation in {col_def.name}: condition failed"
                 failure_messages.append(PSF.when(~expr, PSF.lit(msg)))
@@ -516,11 +546,10 @@ class TableDefinition:
                 raise e
 
 
-@with_logging
 def create_table_definition_from_dict(
     table_name: str,
-    location: str,
     columns_dict: List[Dict[str, Any]],
+    location: Optional[str] = None,
     key_columns: Optional[List[str]] = None,
     include_is_active: bool = True,
     include_create_and_update: bool = True,
@@ -560,8 +589,8 @@ def create_table_definition_from_dict(
     ]
     return TableDefinition(
         table_name=table_name,
-        location=location,
         columns=columns,
+        location=location,
         key_columns=key_columns,
         include_is_active=include_is_active,
         include_create_and_update=include_create_and_update,
