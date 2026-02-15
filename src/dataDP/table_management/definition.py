@@ -134,23 +134,32 @@ class ColumnDefinition:
         """
         try:
             conditions = []
+
             col = PSF.col(self.name)
 
+            # 1. Verificăm Nullability
             if not self.nullable:
                 conditions.append(col.isNotNull())
+
+            # 2. Verificăm Min/Max (folosim coalesce pentru a preveni propagarea NULL-ului)
             if self.min_value is not None:
-                conditions.append(col >= self.min_value)
+                conditions.append(PSF.coalesce(col >= self.min_value, PSF.lit(False)))
+
             if self.max_value is not None:
-                conditions.append(col <= self.max_value)
+                conditions.append(PSF.coalesce(col <= self.max_value, PSF.lit(False)))
+
             if self.custom_condition:
-                conditions.append(PSF.expr(self.custom_condition))
+                # Învelim condiția custom într-un coalesce pentru siguranță
+                conditions.append(PSF.coalesce(PSF.expr(self.custom_condition), PSF.lit(False)))
 
             if not conditions:
                 return None
 
-            # Combine all conditions with AND
+            # Combinăm condițiile cu AND
             final_expr = reduce(operator.and_, conditions)
-            return final_expr
+
+            # ASIGURARE FINALĂ: Dacă rezultatul este NULL, îl transformăm în False
+            return PSF.coalesce(final_expr, PSF.lit(False))
         except Exception as e:
             raise ValueError(f"Error generating validation expression for column '{self.name}': {e}") from e
 
@@ -269,7 +278,14 @@ class TableDefinition:
     include_valid_from_valid_to: bool = False
 
     # Logger injected by @with_logging
-    logger: logging.Logger = field(init=False, repr=False, compare=False)
+    logger: logging.Logger = field(
+        init=False, repr=False, compare=False, default_factory=lambda: logging.getLogger(__name__)
+    )
+
+    @property
+    def spark(self) -> SparkSession:
+        """Returns the active SparkSession."""
+        return SparkSession.getActiveSession()
 
     def __post_init__(self):
         """Validates the table definition after initialization.
@@ -453,6 +469,7 @@ class TableDefinition:
         Returns:
             DataFrame: The original DataFrame with 'validation_errors' and 'is_row_valid' columns appended.
         """
+        self.logger.info(f"Starting validation of DataFrame with columns: {to_write_df.columns}")
         existing_columns = {c.lower() for c in to_write_df.columns}
         failure_messages = []
         for col_def in self.columns:
@@ -461,14 +478,20 @@ class TableDefinition:
 
             expr = col_def.get_validation_expr()
             if expr is not None:
-                # If the expression is FALSE, return the error message, else NULL
-                msg = f"Violation in {col_def.name}: condition failed"
+                msg = f"{col_def.name}"
+                # Folosim explicit logică care prinde și NULL-urile ca erori
                 failure_messages.append(PSF.when(~expr, PSF.lit(msg)))
 
         # Combine all messages into a single array column
-        return to_write_df.withColumn(
-            "validation_errors", PSF.array_remove(PSF.array(*failure_messages), None)
-        ).withColumn("is_row_valid", PSF.size(PSF.col("validation_errors")) == 0)
+        if not failure_messages:
+            return to_write_df.withColumn("validation_errors", PSF.array().cast("array<string>")).withColumn(
+                "is_row_valid", PSF.lit(True)
+            )
+
+        final_df = to_write_df.withColumn(
+            "validation_errors", PSF.filter(PSF.array(*failure_messages), lambda x: x.isNotNull())
+        )
+        return final_df.withColumn("is_row_valid", PSF.size(PSF.col("validation_errors")) == 0)
 
     def process_data(
         self, to_write_df: DataFrame, *, one_output_table: bool = False
@@ -504,12 +527,24 @@ class TableDefinition:
 
         return clean_df, quarantine_df
 
-    def sync_table_version(self, spark: SparkSession):
+    def sync_table_version(self):
         """Updates the schema_version TBLPROPERTY of the table."""
-        self.logger.info(f"Syncing table version for {self.table_name} to {self.version}")
-        spark.sql(f"ALTER TABLE {self.table_name} SET TBLPROPERTIES ('schema_version' = '{self.version}')")
+        try:
+            df_props = self.spark.sql(f"SHOW TBLPROPERTIES {self.table_name}")
 
-    def ensure_version_sync(self, spark: SparkSession):
+            # Filter for our specific key
+            version_row = df_props.filter("key == 'schema_version'").collect()
+
+            self.logger.info(f"Syncing table version for {self.table_name} to {self.version}")
+            self.spark.sql(f"ALTER TABLE {self.table_name} SET TBLPROPERTIES ('schema_version' = '{self.version}')")
+            if version_row:
+                self.logger.info(f"Updated existing schema_version from {version_row[0]['value']} to {self.version}")
+            else:
+                self.logger.info(f"Set new schema_version to {self.version}")
+        except Exception:
+            self.logger.warning(f"Failed to set schema_version for table {self.table_name}")
+
+    def ensure_version_sync(self):
         """
         Ensures the table's schema_version property in the catalog matches the definition.
 
@@ -521,7 +556,7 @@ class TableDefinition:
 
         try:
             # 1. Fetch existing properties from the Spark Catalog
-            props = spark.sql(f"SHOW TBLPROPERTIES {self.table_name}").collect()
+            props = self.spark.sql(f"SHOW TBLPROPERTIES {self.table_name}").collect()
             # Convert the list of rows into a dictionary
             prop_dict = {row["key"]: row["value"] for row in props}
             current_catalog_version = prop_dict.get("schema_version")
@@ -532,15 +567,15 @@ class TableDefinition:
                     f"Version mismatch for {self.table_name}! "
                     f"Catalog version: {current_catalog_version}, Code version: {self.version}. Updating..."
                 )
-                self.sync_table_version(spark)
+                self.sync_table_version()
             else:
                 self.logger.info(f"Table {self.table_name} is already at version {self.version}.")
 
         except AnalysisException as e:
             # If the table doesn't exist, AnalysisException is thrown.
             if "TABLE_OR_VIEW_NOT_FOUND" in str(e):
-                self.logger.info(f"Table {self.table_name} not found. Running initial DDL to create it.")
-                spark.sql(self.generate_ddl())
+                self.logger.warning(f"Table {self.table_name} not found. Running initial DDL to create it.")
+                self.spark.sql(self.generate_ddl())
             else:
                 # Re-raise other analysis exceptions
                 raise e
