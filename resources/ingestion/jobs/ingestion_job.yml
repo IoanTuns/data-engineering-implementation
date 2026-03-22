@@ -27,13 +27,13 @@ resources:
           notebook_task:
             notebook_path: ../../../notebooks/ingestion/ingest_taxi_zone_lookup.ipynb
 
-        - task_key: python_wheel_task
-          depends_on:
-            - task_key: inget_taxi_data
-          environment_key: default
-          python_wheel_task:
-            package_name: dataDP
-            entry_point: main
+        # - task_key: python_wheel_task
+        #   depends_on:
+        #     - task_key: inget_taxi_data
+        #   environment_key: default
+        #   python_wheel_task:
+        #     package_name: dataDP
+        #     entry_point: main
 
       environments:
         - environment_key: default
