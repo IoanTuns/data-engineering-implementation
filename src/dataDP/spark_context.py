@@ -5,7 +5,7 @@ import os
 from databricks.connect import DatabricksSession
 from pyspark.sql import SparkSession
 
-from ..decorators.loggers import logger
+from dataDP.utils.logger import logger
 
 
 def is_databricks_available() -> bool:
@@ -30,7 +30,7 @@ def get_spark_session(app_name="DataDP_Project", min_version="3.0") -> SparkSess
 
         has_databricks = is_databricks_available()
         if has_databricks:
-            spark = DatabricksSession.builder.appName(app_name).getOrCreate()
+            spark = DatabricksSession.builder.getOrCreate()
         else:
             spark = SparkSession.builder.appName(app_name).getOrCreate()
 

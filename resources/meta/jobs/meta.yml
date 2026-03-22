@@ -1,0 +1,14 @@
+resources:
+  jobs:
+    load_meta_table:
+      name: load_meta_table
+      max_concurrent_runs: 1
+
+      #email_notifications:
+      #  on_failure:
+      #    - your_email@example.com
+
+      tasks:
+        - task_key: notebook_task
+          notebook_task:
+            notebook_path: ../../../notebooks/meta/process_table.ipynb

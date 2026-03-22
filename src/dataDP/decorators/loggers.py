@@ -1,9 +1,11 @@
+"""Module for logging decorators to enhance visibility and debugging in Databricks jobs."""
+
 import functools
 import time
 from typing import Any, Callable, TypeVar
 
-from ..decorators.loggers import logger
-from .spark_context import get_spark_session
+from dataDP.spark_context import get_spark_session
+from dataDP.utils.logger import logger
 
 # Generic type for function return values
 R = TypeVar("R")

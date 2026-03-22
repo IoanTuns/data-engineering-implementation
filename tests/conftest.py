@@ -20,16 +20,13 @@ except ImportError:
     )
 
 
-@pytest.fixture()
-def spark() -> SparkSession:
-    """Provide a SparkSession fixture for tests.
+@pytest.fixture(scope="session")
+def spark():
+    """Creează o sesiune Spark locală pentru teste."""
+    spark = SparkSession.builder.master("local[1]").appName("unit-testing").getOrCreate()
+    yield spark
+    spark.stop()
 
-    Minimal example:
-        def test_uses_spark(spark):
-            df = spark.createDataFrame([(1,)], ["x"])
-            assert df.count() == 1
-    """
-    return DatabricksSession.builder.getOrCreate()
 
 
 @pytest.fixture()
@@ -65,7 +62,7 @@ def _enable_fallback_compute():
         return
 
     url = "https://docs.databricks.com/dev-tools/databricks-connect/cluster-config"
-    print("☁️ no compute specified, falling back to serverless compute", file=sys.stderr)
+    print("no compute specified, falling back to serverless compute", file=sys.stderr)
     print(f"  see {url} for manual configuration", file=sys.stdout)
 
     os.environ["DATABRICKS_SERVERLESS_COMPUTE_ID"] = "auto"

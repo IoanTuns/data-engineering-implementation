@@ -1,21 +1,21 @@
-# The main pipeline for dataDP
+# # The main pipeline for dataDP
 
-resources:
+# resources:
   
-  pipelines:
-    dataDP_etl:
-      name: dataDP_etl
-      catalog: ${var.catalog}
-      schema: ${var.schema}
-      serverless: true
-      root_path: "../src/dataDP_etl"
+#   pipelines:
+#     dataDP_etl:
+#       name: dataDP_etl
+#       catalog: ${var.catalog}
+#       schema: ${var.schema}
+#       serverless: true
+#       root_path: "../src/dataDP_etl"
 
-      libraries:
-        - glob:
-            include: ../src/dataDP_etl/transformations/**
+#       libraries:
+#         - glob:
+#             include: ../src/dataDP_etl/transformations/**
 
-      environment:
-        dependencies:
-          # We include every dependency defined by pyproject.toml by defining an editable environment
-          # that points to the folder where pyproject.toml is deployed.
-          - --editable ${workspace.file_path}
+#       environment:
+#         dependencies:
+#           # We include every dependency defined by pyproject.toml by defining an editable environment
+#           # that points to the folder where pyproject.toml is deployed.
+#           - --editable ${workspace.file_path}

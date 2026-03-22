@@ -5,8 +5,8 @@ bundle:
   uuid: d07a0687-b5d8-4878-9b29-5a195ea432b1
 
 include:
-  - resources/*.yml
-  - resources/*/*.yml
+  - resources/**/*.yml
+  - resources/**/**/*.yml
 
 artifacts:
   python_artifact:
@@ -32,7 +32,8 @@ targets:
       host: https://dbc-7408801f-8183.cloud.databricks.com
     variables:
       catalog: workspace
-      schema: ${workspace.current_user.short_name}
+      schema: "dev_${workspace.current_user.short_name}"
+      
   prod:
     mode: production
     workspace:
